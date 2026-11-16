@@ -1,1 +1,110 @@
+/**
+ * Backend API untuk Bank Media Pembelajaran Digital
+ * Mendukung operasi GET (ambil katalog) dan POST (simpan karya baru)
+ */
+
+const SHEET_NAME = "DataMedia";
+
+// Mengambil seluruh data dari Google Sheets ke Frontend
+function doGet(e) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(SHEET_NAME);
+    
+    if (!sheet) {
+      return createJsonResponse({ 
+        status: "error", 
+        message: "Sheet '" + SHEET_NAME + "' tidak ditemukan." 
+      });
+    }
+
+    const rows = sheet.getDataRange().getValues();
+    
+    // Jika hanya ada baris header atau kosong
+    if (rows.length <= 1) {
+      return createJsonResponse({ status: "success", data: [] });
+    }
+
+    const data = [];
+    // Mulai dari indeks 1 (melewati baris header indeks 0)
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      // Lewati baris jika judul atau tautan kosong
+      if (!row[3] && !row[8]) continue;
+
+      data.push({
+        timestamp: row[0] ? String(row[0]) : "",
+        nama: row[1] ? String(row[1]) : "",
+        sekolah: row[2] ? String(row[2]) : "",
+        judul: row[3] ? String(row[3]) : "",
+        jenjang: row[4] ? String(row[4]) : "",
+        mapel: row[5] ? String(row[5]) : "",
+        jenis: row[6] ? String(row[6]) : "",
+        deskripsi: row[7] ? String(row[7]) : "",
+        tautan: row[8] ? String(row[8]) : ""
+      });
+    }
+
+    return createJsonResponse({ status: "success", data: data });
+
+  } catch (error) {
+    return createJsonResponse({ status: "error", message: error.toString() });
+  }
+}
+
+// Menerima kiriman data dari Form Frontend dan menyimpannya ke baris baru
+function doPost(e) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(SHEET_NAME);
+
+    if (!sheet) {
+      return createJsonResponse({ 
+        status: "error", 
+        message: "Sheet '" + SHEET_NAME + "' tidak ditemukan." 
+      });
+    }
+
+    // Parse payload JSON dari request body
+    const payload = JSON.parse(e.postData.contents);
+
+    // Validasi sederhana di sisi server
+    if (!payload.nama || !payload.judul || !payload.tautan) {
+      return createJsonResponse({ 
+        status: "error", 
+        message: "Data wajib (Nama, Judul, Tautan) tidak boleh kosong." 
+      });
+    }
+
+    const timestamp = Utilities.formatDate(new Date(), "Asia/Jakarta", "yyyy-MM-dd HH:mm:ss");
+
+    // Tambahkan baris baru sesuai urutan kolom A - I
+    sheet.appendRow([
+      timestamp,
+      payload.nama,
+      payload.sekolah || "-",
+      payload.judul,
+      payload.jenjang || "Umum",
+      payload.mapel || "Umum",
+      payload.jenis || "Lainnya",
+      payload.deskripsi || "",
+      payload.tautan
+    ]);
+
+    return createJsonResponse({ 
+      status: "success", 
+      message: "Karya berhasil disimpan ke database." 
+    });
+
+  } catch (error) {
+    return createJsonResponse({ status: "error", message: error.toString() });
+  }
+}
+
+// Helper untuk menghasilkan output JSON
+function createJsonResponse(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
 const DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwXlEimqhN0fueSSjNLBfJbQ0nnCdW8ZH36NorABJa2kutElo04o0iGAUAXnF5EiLB4zw/exec";
