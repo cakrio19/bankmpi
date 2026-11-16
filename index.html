@@ -1,110 +1,858 @@
-/**
- * Backend API untuk Bank Media Pembelajaran Digital
- * Mendukung operasi GET (ambil katalog) dan POST (simpan karya baru)
- */
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Media Pembelajaran Digital - Repositori Karya Guru</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
 
-const SHEET_NAME = "DataMedia";
+    <!-- Navbar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-brand-600 text-white flex items-center justify-center shadow-md shadow-brand-600/20">
+                    <i class="fa-solid fa-graduation-cap text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg sm:text-xl text-slate-900 leading-tight">Bank Media <span class="text-brand-600">Digital</span></h1>
+                    <p class="text-xs text-slate-500 hidden sm:block">Repositori Karya Inovatif Guru Indonesia</p>
+                </div>
+            </div>
 
-// Mengambil seluruh data dari Google Sheets ke Frontend
-function doGet(e) {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(SHEET_NAME);
-    
-    if (!sheet) {
-      return createJsonResponse({ 
-        status: "error", 
-        message: "Sheet '" + SHEET_NAME + "' tidak ditemukan." 
-      });
-    }
+            <div class="flex items-center gap-2 sm:gap-3">
+                <button onclick="openConfigModal()" title="Pengaturan API Google Sheets" class="p-2.5 text-slate-500 hover:text-brand-600 hover:bg-brand-50 rounded-xl transition">
+                    <i class="fa-solid fa-gear"></i>
+                </button>
+                <button onclick="openSubmitModal()" class="bg-brand-600 hover:bg-brand-700 text-white font-medium text-sm px-4 py-2.5 rounded-xl shadow-sm hover:shadow transition flex items-center gap-2">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Kirim Karya</span>
+                </button>
+            </div>
+        </div>
+    </header>
 
-    const rows = sheet.getDataRange().getValues();
-    
-    // Jika hanya ada baris header atau kosong
-    if (rows.length <= 1) {
-      return createJsonResponse({ status: "success", data: [] });
-    }
+    <!-- Banner Status Mode Demo (Muncul jika URL Apps Script belum diatur) -->
+    <div id="demoBanner" class="bg-amber-50 border-b border-amber-200 px-4 py-2.5 text-xs sm:text-sm text-amber-800">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-circle-info text-amber-600"></i>
+                <span><strong>Mode Simulasi (Demo):</strong> Menampilkan data contoh lokal. Hubungkan URL Web App Google Apps Script untuk menyimpan ke Google Sheets secara permanen.</span>
+            </div>
+            <button onclick="openConfigModal()" class="underline font-semibold hover:text-amber-950 whitespace-nowrap">
+                Hubungkan Google Sheets &rarr;
+            </button>
+        </div>
+    </div>
 
-    const data = [];
-    // Mulai dari indeks 1 (melewati baris header indeks 0)
-    for (let i = 1; i < rows.length; i++) {
-      const row = rows[i];
-      // Lewati baris jika judul atau tautan kosong
-      if (!row[3] && !row[8]) continue;
+    <!-- Hero & Statistik Ringkas -->
+    <section class="bg-gradient-to-br from-brand-900 via-brand-700 to-indigo-800 text-white py-10 sm:py-14">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                <div class="lg:col-span-7 space-y-4">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-white/10 text-blue-100 border border-white/15">
+                        <i class="fa-solid fa-sparkles text-amber-300"></i> Berbagi Inspirasi Pembelajaran
+                    </span>
+                    <h2 class="text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight">
+                        Temukan & Bagikan Media Pembelajaran Digital Terbaik
+                    </h2>
+                    <p class="text-blue-100 text-sm sm:text-base max-w-2xl leading-relaxed">
+                        Kumpulan tautan video interaktif, modul ajar, kuis digital, hingga gim edukasi hasil karya kreatif para pendidik untuk mendukung pembelajaran di kelas.
+                    </p>
+                </div>
 
-      data.push({
-        timestamp: row[0] ? String(row[0]) : "",
-        nama: row[1] ? String(row[1]) : "",
-        sekolah: row[2] ? String(row[2]) : "",
-        judul: row[3] ? String(row[3]) : "",
-        jenjang: row[4] ? String(row[4]) : "",
-        mapel: row[5] ? String(row[5]) : "",
-        jenis: row[6] ? String(row[6]) : "",
-        deskripsi: row[7] ? String(row[7]) : "",
-        tautan: row[8] ? String(row[8]) : ""
-      });
-    }
+                <!-- Kartu Statistik -->
+                <div class="lg:col-span-5 grid grid-cols-2 gap-4">
+                    <div class="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-5 flex flex-col justify-between">
+                        <div class="w-10 h-10 rounded-xl bg-blue-400/20 text-blue-200 flex items-center justify-center mb-3">
+                            <i class="fa-solid fa-layer-group text-lg"></i>
+                        </div>
+                        <div>
+                            <p class="text-blue-200 text-xs sm:text-sm font-medium">Total Karya Media</p>
+                            <h3 id="statTotalMedia" class="text-3xl sm:text-4xl font-extrabold mt-1">0</h3>
+                        </div>
+                    </div>
+                    <div class="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-5 flex flex-col justify-between">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-400/20 text-emerald-200 flex items-center justify-center mb-3">
+                            <i class="fa-solid fa-chalkboard-user text-lg"></i>
+                        </div>
+                        <div>
+                            <p class="text-blue-200 text-xs sm:text-sm font-medium">Kontributor Guru</p>
+                            <h3 id="statTotalGuru" class="text-3xl sm:text-4xl font-extrabold mt-1">0</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
-    return createJsonResponse({ status: "success", data: data });
+    <!-- Konten Utama: Pencarian, Filter, & Grid Katalog -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        
+        <!-- Bar Pencarian & Filter -->
+        <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-slate-200 space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+                <!-- Search Input -->
+                <div class="md:col-span-5 relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                    <input type="text" id="searchInput" placeholder="Cari judul media, nama guru, atau sekolah..." 
+                        class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition">
+                </div>
 
-  } catch (error) {
-    return createJsonResponse({ status: "error", message: error.toString() });
-  }
-}
+                <!-- Filter Jenjang -->
+                <div class="md:col-span-2">
+                    <select id="filterJenjang" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition">
+                        <option value="">Semua Jenjang</option>
+                        <option value="PAUD/TK">PAUD / TK</option>
+                        <option value="SD/MI">SD / MI</option>
+                        <option value="SMP/MTs">SMP / MTs</option>
+                        <option value="SMA/MA">SMA / MA</option>
+                        <option value="SMK">SMK</option>
+                        <option value="SLB">SLB</option>
+                        <option value="Umum">Umum</option>
+                    </select>
+                </div>
 
-// Menerima kiriman data dari Form Frontend dan menyimpannya ke baris baru
-function doPost(e) {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(SHEET_NAME);
+                <!-- Filter Mata Pelajaran -->
+                <div class="md:col-span-3">
+                    <select id="filterMapel" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition">
+                        <option value="">Semua Mata Pelajaran</option>
+                        <!-- Opsi mapel diisi dinamis dari data -->
+                    </select>
+                </div>
 
-    if (!sheet) {
-      return createJsonResponse({ 
-        status: "error", 
-        message: "Sheet '" + SHEET_NAME + "' tidak ditemukan." 
-      });
-    }
+                <!-- Filter Jenis Media -->
+                <div class="md:col-span-2">
+                    <select id="filterJenis" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition">
+                        <option value="">Semua Jenis</option>
+                        <option value="Video Pembelajaran">Video Pembelajaran</option>
+                        <option value="Modul / E-Book / PDF">Modul / E-Book / PDF</option>
+                        <option value="Quiz Interaktif">Quiz Interaktif</option>
+                        <option value="Game Edukasi">Game Edukasi</option>
+                        <option value="Presentasi Interaktif">Presentasi Interaktif</option>
+                        <option value="Website / Aplikasi">Website / Aplikasi</option>
+                    </select>
+                </div>
+            </div>
 
-    // Parse payload JSON dari request body
-    const payload = JSON.parse(e.postData.contents);
+            <!-- Info Hasil Filter & Tombol Reset -->
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs text-slate-500">
+                <span id="resultCountText">Memuat data media pembelajaran...</span>
+                <div class="flex items-center gap-3">
+                    <button onclick="resetFilters()" id="resetFilterBtn" class="hidden text-brand-600 hover:text-brand-700 font-medium items-center gap-1">
+                        <i class="fa-solid fa-rotate-left"></i> Reset Filter
+                    </button>
+                    <button onclick="fetchMediaData()" class="text-slate-600 hover:text-brand-600 font-medium flex items-center gap-1" title="Segarkan Data">
+                        <i class="fa-solid fa-arrows-rotate" id="refreshIcon"></i> Segarkan
+                    </button>
+                </div>
+            </div>
+        </div>
 
-    // Validasi sederhana di sisi server
-    if (!payload.nama || !payload.judul || !payload.tautan) {
-      return createJsonResponse({ 
-        status: "error", 
-        message: "Data wajib (Nama, Judul, Tautan) tidak boleh kosong." 
-      });
-    }
+        <!-- Loading State Skeleton -->
+        <div id="loadingGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- 6 Skeleton Cards -->
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 animate-pulse space-y-4">
+                <div class="flex justify-between">
+                    <div class="h-6 w-28 bg-slate-200 rounded-lg"></div>
+                    <div class="h-6 w-16 bg-slate-200 rounded-lg"></div>
+                </div>
+                <div class="h-6 w-3/4 bg-slate-200 rounded"></div>
+                <div class="space-y-2">
+                    <div class="h-4 w-full bg-slate-200 rounded"></div>
+                    <div class="h-4 w-5/6 bg-slate-200 rounded"></div>
+                </div>
+                <div class="pt-4 border-t border-slate-100 flex justify-between items-center">
+                    <div class="h-8 w-32 bg-slate-200 rounded"></div>
+                    <div class="h-9 w-28 bg-slate-200 rounded-xl"></div>
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 animate-pulse space-y-4 hidden md:block">
+                <div class="flex justify-between">
+                    <div class="h-6 w-28 bg-slate-200 rounded-lg"></div>
+                    <div class="h-6 w-16 bg-slate-200 rounded-lg"></div>
+                </div>
+                <div class="h-6 w-3/4 bg-slate-200 rounded"></div>
+                <div class="space-y-2">
+                    <div class="h-4 w-full bg-slate-200 rounded"></div>
+                    <div class="h-4 w-5/6 bg-slate-200 rounded"></div>
+                </div>
+                <div class="pt-4 border-t border-slate-100 flex justify-between items-center">
+                    <div class="h-8 w-32 bg-slate-200 rounded"></div>
+                    <div class="h-9 w-28 bg-slate-200 rounded-xl"></div>
+                </div>
+            </div>
+            <div class="bg-white rounded-2xl p-5 border border-slate-200 animate-pulse space-y-4 hidden lg:block">
+                <div class="flex justify-between">
+                    <div class="h-6 w-28 bg-slate-200 rounded-lg"></div>
+                    <div class="h-6 w-16 bg-slate-200 rounded-lg"></div>
+                </div>
+                <div class="h-6 w-3/4 bg-slate-200 rounded"></div>
+                <div class="space-y-2">
+                    <div class="h-4 w-full bg-slate-200 rounded"></div>
+                    <div class="h-4 w-5/6 bg-slate-200 rounded"></div>
+                </div>
+                <div class="pt-4 border-t border-slate-100 flex justify-between items-center">
+                    <div class="h-8 w-32 bg-slate-200 rounded"></div>
+                    <div class="h-9 w-28 bg-slate-200 rounded-xl"></div>
+                </div>
+            </div>
+        </div>
 
-    const timestamp = Utilities.formatDate(new Date(), "Asia/Jakarta", "yyyy-MM-dd HH:mm:ss");
+        <!-- Empty State (Jika data kosong / tidak cocok filter) -->
+        <div id="emptyState" class="hidden bg-white rounded-2xl border border-slate-200 p-12 text-center max-w-lg mx-auto my-8">
+            <div class="w-16 h-16 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-4 text-2xl">
+                <i class="fa-solid fa-folder-open"></i>
+            </div>
+            <h3 class="text-lg font-bold text-slate-800">Media Tidak Ditemukan</h3>
+            <p class="text-sm text-slate-500 mt-1 mb-5">Belum ada karya yang sesuai dengan kata kunci atau filter yang Anda pilih.</p>
+            <button onclick="resetFilters()" class="px-4 py-2 bg-brand-50 text-brand-600 hover:bg-brand-100 font-medium text-sm rounded-xl transition">
+                Tampilkan Semua Media
+            </button>
+        </div>
 
-    // Tambahkan baris baru sesuai urutan kolom A - I
-    sheet.appendRow([
-      timestamp,
-      payload.nama,
-      payload.sekolah || "-",
-      payload.judul,
-      payload.jenjang || "Umum",
-      payload.mapel || "Umum",
-      payload.jenis || "Lainnya",
-      payload.deskripsi || "",
-      payload.tautan
-    ]);
+        <!-- Grid Kartu Media Pembelajaran -->
+        <div id="mediaGrid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Kartu akan dirender via JavaScript -->
+        </div>
 
-    return createJsonResponse({ 
-      status: "success", 
-      message: "Karya berhasil disimpan ke database." 
-    });
+    </main>
 
-  } catch (error) {
-    return createJsonResponse({ status: "error", message: error.toString() });
-  }
-}
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-6 mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+            <p>&copy; 2026 Bank Media Pembelajaran Digital. Dikembangkan untuk Ekosistem Pendidikan Indonesia.</p>
+            <p>Database didukung oleh <span class="font-semibold text-emerald-600"><i class="fa-solid fa-table"></i> Google Sheets</span></p>
+        </div>
+    </footer>
 
-// Helper untuk menghasilkan output JSON
-function createJsonResponse(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-const DEFAULT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwXlEimqhN0fueSSjNLBfJbQ0nnCdW8ZH36NorABJa2kutElo04o0iGAUAXnF5EiLB4zw/exec";
+    <!-- MODAL 1: FORM KIRIM KARYA GURU -->
+    <div id="submitModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end sm:items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Overlay -->
+            <div onclick="closeSubmitModal()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <!-- Modal Box -->
+            <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl w-full border border-slate-200">
+                <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-8 h-8 rounded-lg bg-brand-600 text-white flex items-center justify-center text-sm">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                        </div>
+                        <h3 class="text-base sm:text-lg font-bold text-slate-900">Kirim Karya Media Pembelajaran</h3>
+                    </div>
+                    <button onclick="closeSubmitModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200/50 transition">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+
+                <form id="mediaForm" onsubmit="handleFormSubmit(event)" class="p-6 space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Nama Lengkap Guru <span class="text-red-500">*</span></label>
+                            <input type="text" id="inputNama" required placeholder="Contoh: Budi Santoso, S.Pd."
+                                class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Asal Sekolah / Instansi <span class="text-red-500">*</span></label>
+                            <input type="text" id="inputSekolah" required placeholder="Contoh: SMP Negeri 1 Nusantara"
+                                class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Judul Media Pembelajaran <span class="text-red-500">*</span></label>
+                        <input type="text" id="inputJudul" required placeholder="Contoh: Eksplorasi Sistem Tata Surya 3D Interaktif"
+                            class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Jenjang <span class="text-red-500">*</span></label>
+                            <select id="inputJenjang" required class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white">
+                                <option value="">Pilih Jenjang</option>
+                                <option value="PAUD/TK">PAUD / TK</option>
+                                <option value="SD/MI">SD / MI</option>
+                                <option value="SMP/MTs">SMP / MTs</option>
+                                <option value="SMA/MA">SMA / MA</option>
+                                <option value="SMK">SMK</option>
+                                <option value="SLB">SLB</option>
+                                <option value="Umum">Umum</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Mata Pelajaran <span class="text-red-500">*</span></label>
+                            <input type="text" id="inputMapel" required placeholder="Misal: IPA / Matematika"
+                                class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Jenis Media <span class="text-red-500">*</span></label>
+                            <select id="inputJenis" required class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white">
+                                <option value="">Pilih Jenis</option>
+                                <option value="Video Pembelajaran">Video Pembelajaran</option>
+                                <option value="Modul / E-Book / PDF">Modul / E-Book / PDF</option>
+                                <option value="Quiz Interaktif">Quiz Interaktif</option>
+                                <option value="Game Edukasi">Game Edukasi</option>
+                                <option value="Presentasi Interaktif">Presentasi Interaktif</option>
+                                <option value="Website / Aplikasi">Website / Aplikasi</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Tautan / URL Karya <span class="text-red-500">*</span></label>
+                        <div class="relative">
+                            <i class="fa-solid fa-link absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                            <input type="url" id="inputTautan" required placeholder="https://youtube.com/... atau https://drive.google.com/..."
+                                class="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white">
+                        </div>
+                        <p class="text-[11px] text-slate-400 mt-1">Pastikan akses tautan (misal Google Drive/Canva) sudah diatur ke <strong>Publik / Siapa saja yang memiliki link</strong>.</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">Deskripsi Singkat Media <span class="text-red-500">*</span></label>
+                        <textarea id="inputDeskripsi" rows="3" required placeholder="Jelaskan secara singkat materi yang dibahas dan cara penggunaan media ini..."
+                            class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white"></textarea>
+                    </div>
+
+                    <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-3">
+                        <button type="button" onclick="closeSubmitModal()" class="px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl transition">
+                            Batal
+                        </button>
+                        <button type="submit" id="submitBtn" class="px-5 py-2.5 text-sm font-semibold text-white bg-brand-600 hover:bg-brand-700 rounded-xl shadow-sm transition flex items-center gap-2">
+                            <i class="fa-solid fa-paper-plane"></i>
+                            <span>Kirim & Publikasikan</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: PENGATURAN URL GOOGLE APPS SCRIPT -->
+    <div id="configModal" class="fixed inset-0 z-50 hidden overflow-y-auto" role="dialog" aria-modal="true">
+        <div class="flex items-end sm:items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div onclick="closeConfigModal()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+
+            <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full border border-slate-200">
+                <div class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+                    <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                        <i class="fa-solid fa-database text-emerald-600"></i> Koneksi Database Google Sheets
+                    </h3>
+                    <button onclick="closeConfigModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="p-6 space-y-4">
+                    <p class="text-xs text-slate-600 leading-relaxed">
+                        Tempelkan <strong>URL Web App Google Apps Script</strong> Anda di bawah ini untuk menghubungkan katalog ini secara langsung dengan spreadsheet Anda. Kosongkan jika ingin kembali ke Mode Demo.
+                    </p>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1">URL Web App Google Apps Script</label>
+                        <input type="url" id="scriptUrlInput" placeholder="https://script.google.com/macros/s/AKfycbx.../exec"
+                            class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-brand-500">
+                    </div>
+                    <div class="flex justify-end gap-2 pt-2">
+                        <button onclick="closeConfigModal()" class="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl">Batal</button>
+                        <button onclick="saveScriptUrl()" class="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-sm">
+                            Simpan & Muat Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFIKASI -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+        <div id="toastContent" class="flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-white text-sm font-medium">
+            <i id="toastIcon" class="fa-solid fa-circle-check"></i>
+            <span id="toastMessage">Berhasil!</span>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * KONFIGURASI API GOOGLE APPS SCRIPT
+         * Anda bisa langsung menempelkan URL Web App Anda di variabel DEFAULT_SCRIPT_URL di bawah ini,
+         * atau mengaturnya melalui tombol ikon Gerigi (Settings) di pojok kanan atas halaman web.
+         */
+        const DEFAULT_SCRIPT_URL = ""; 
+
+        let SCRIPT_URL = localStorage.getItem('bank_media_script_url') || DEFAULT_SCRIPT_URL;
+        let allMediaData = [];
+
+        // Data Contoh untuk Mode Simulasi / Demo (jika SCRIPT_URL belum diisi)
+        const DEMO_DATA = [
+            {
+                timestamp: "2026-10-12 08:30:00",
+                nama: "Siti Aminah, S.Pd., M.Pd.",
+                sekolah: "SMA Negeri 2 Bandar Lampung",
+                judul: "Simulasi Interaktif Hukum Newton & Gerak Parabola",
+                jenjang: "SMA/MA",
+                mapel: "Fisika",
+                jenis: "Website / Aplikasi",
+                deskripsi: "Media pembelajaran berbasis web interaktif untuk memvisualisasikan lintasan gerak parabola dengan variasi sudut elevasi dan kecepatan awal.",
+                tautan: "https://phet.colorado.edu/in/"
+            },
+            {
+                timestamp: "2026-10-14 10:15:00",
+                nama: "Ahmad Fauzi, S.Pd.",
+                sekolah: "SMP Negeri 1 Metro",
+                judul: "Kuis Petualangan Aljabar & Persamaan Linear",
+                jenjang: "SMP/MTs",
+                mapel: "Matematika",
+                jenis: "Quiz Interaktif",
+                deskripsi: "Latihan soal gamifikasi berbasis Wordwall untuk melatih pemahaman siswa kelas VII dalam menyelesaikan persamaan linear satu variabel.",
+                tautan: "https://wordwall.net/"
+            },
+            {
+                timestamp: "2026-10-18 14:20:00",
+                nama: "Ratna Dewi, S.Pd.SD",
+                sekolah: "SD Negeri 4 Pringsewu",
+                judul: "Video Animasi Siklus Air dan Pelestarian Lingkungan",
+                jenjang: "SD/MI",
+                mapel: "IPAS",
+                jenis: "Video Pembelajaran",
+                deskripsi: "Video animasi berdurasi 7 menit yang menjelaskan proses evaporasi, kondensasi, dan presipitasi dengan ilustrasi ramah anak.",
+                tautan: "https://www.youtube.com/"
+            },
+            {
+                timestamp: "2026-10-21 09:00:00",
+                nama: "Hendra Wijaya, S.Kom.",
+                sekolah: "SMK Telkom Lampung",
+                judul: "Modul Ajar & Panduan Praktik Desain UI/UX Dasar",
+                jenjang: "SMK",
+                mapel: "Desain Komunikasi Visual",
+                jenis: "Modul / E-Book / PDF",
+                deskripsi: "E-modul lengkap berisi teori prinsip desain antarmuka, tipografi, sistem warna, serta studi kasus pembuatan wireframe aplikasi mobile.",
+                tautan: "https://www.canva.com/"
+            },
+            {
+                timestamp: "2026-11-02 11:45:00",
+                nama: "Nurul Hidayah, S.Pd.",
+                sekolah: "MTs Negeri 1 Lampung Selatan",
+                judul: "Presentasi Interaktif Sejarah Peradaban Islam Nusantara",
+                jenjang: "SMP/MTs",
+                mapel: "Sejarah Kebudayaan Islam",
+                jenis: "Presentasi Interaktif",
+                deskripsi: "Slide presentasi kaya visual dengan peta interaktif jalur masuknya Islam ke Nusantara serta peninggalan sejarahnya.",
+                tautan: "https://www.canva.com/"
+            },
+            {
+                timestamp: "2026-11-10 16:10:00",
+                nama: "Dimas Pratama, S.Pd.",
+                sekolah: "SD Al-Azhar 1",
+                judul: "Gim Edukasi Tebak Pahlawan Nasional Indonesia",
+                jenjang: "SD/MI",
+                mapel: "Pendidikan Pancasila",
+                jenis: "Game Edukasi",
+                deskripsi: "Permainan tebak gambar dan profil pahlawan kemerdekaan Indonesia untuk meningkatkan rasa nasionalisme siswa sekolah dasar.",
+                tautan: "https://quizizz.com/"
+            }
+        ];
+
+        // Inisialisasi saat halaman dimuat
+        document.addEventListener('DOMContentLoaded', () => {
+            updateBannerVisibility();
+            fetchMediaData();
+
+            // Event Listener untuk Search & Filter real-time
+            document.getElementById('searchInput').addEventListener('input', applyFilters);
+            document.getElementById('filterJenjang').addEventListener('change', applyFilters);
+            document.getElementById('filterMapel').addEventListener('change', applyFilters);
+            document.getElementById('filterJenis').addEventListener('change', applyFilters);
+        });
+
+        function updateBannerVisibility() {
+            const banner = document.getElementById('demoBanner');
+            if (SCRIPT_URL && SCRIPT_URL.trim() !== "") {
+                banner.classList.add('hidden');
+            } else {
+                banner.classList.remove('hidden');
+            }
+        }
+
+        // Mengambil data dari Google Sheets (atau Demo Data jika URL kosong)
+        async function fetchMediaData() {
+            const loadingGrid = document.getElementById('loadingGrid');
+            const mediaGrid = document.getElementById('mediaGrid');
+            const emptyState = document.getElementById('emptyState');
+            const refreshIcon = document.getElementById('refreshIcon');
+
+            loadingGrid.classList.remove('hidden');
+            mediaGrid.classList.add('hidden');
+            emptyState.classList.add('hidden');
+            refreshIcon.classList.add('fa-spin');
+
+            try {
+                if (!SCRIPT_URL || SCRIPT_URL.trim() === "") {
+                    // Simulasi jeda jaringan untuk Mode Demo
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    const localSaved = JSON.parse(localStorage.getItem('bank_media_demo_items') || '[]');
+                    allMediaData = [...localSaved, ...DEMO_DATA];
+                } else {
+                    const response = await fetch(SCRIPT_URL);
+                    if (!response.ok) throw new Error('Gagal mengambil data dari server.');
+                    const result = await response.json();
+                    
+                    if (result.status === 'success' && Array.isArray(result.data)) {
+                        // Urutkan dari yang terbaru (paling bawah di spreadsheet -> paling atas di web)
+                        allMediaData = result.data.reverse();
+                    } else {
+                        throw new Error(result.message || 'Format data tidak valid.');
+                    }
+                }
+
+                updateStats(allMediaData);
+                populateMapelFilter(allMediaData);
+                applyFilters();
+
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                showToast('Gagal memuat data dari Google Sheets. Periksa URL Web App Anda.', 'error');
+                loadingGrid.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+            } finally {
+                refreshIcon.classList.remove('fa-spin');
+            }
+        }
+
+        // Memperbarui Statistik Ringkas (Total Karya & Total Kontributor Unik)
+        function updateStats(data) {
+            document.getElementById('statTotalMedia').textContent = data.length;
+            
+            // Hitung kontributor unik berdasarkan nama guru (case-insensitive)
+            const uniqueTeachers = new Set(
+                data.map(item => (item.nama || '').trim().toLowerCase()).filter(Boolean)
+            );
+            document.getElementById('statTotalGuru').textContent = uniqueTeachers.size;
+        }
+
+        // Mengisi dropdown filter Mata Pelajaran secara dinamis berdasarkan data yang ada
+        function populateMapelFilter(data) {
+            const filterMapel = document.getElementById('filterMapel');
+            const currentVal = filterMapel.value;
+            
+            const mapelSet = new Set(
+                data.map(item => (item.mapel || '').trim()).filter(Boolean)
+            );
+            const sortedMapel = Array.from(mapelSet).sort((a, b) => a.localeCompare(b));
+
+            filterMapel.innerHTML = '<option value="">Semua Mata Pelajaran</option>';
+            sortedMapel.forEach(mapel => {
+                const option = document.createElement('option');
+                option.value = mapel;
+                option.textContent = mapel;
+                filterMapel.appendChild(option);
+            });
+
+            if (sortedMapel.includes(currentVal)) {
+                filterMapel.value = currentVal;
+            }
+        }
+
+        // Menerapkan Pencarian & Filter
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+            const jenjang = document.getElementById('filterJenjang').value;
+            const mapel = document.getElementById('filterMapel').value;
+            const jenis = document.getElementById('filterJenis').value;
+
+            const isFiltering = searchTerm !== '' || jenjang !== '' || mapel !== '' || jenis !== '';
+            const resetBtn = document.getElementById('resetFilterBtn');
+            if (isFiltering) {
+                resetBtn.classList.remove('hidden');
+                resetBtn.classList.add('inline-flex');
+            } else {
+                resetBtn.classList.add('hidden');
+                resetBtn.classList.remove('inline-flex');
+            }
+
+            const filtered = allMediaData.filter(item => {
+                const matchSearch = !searchTerm || 
+                    (item.judul && item.judul.toLowerCase().includes(searchTerm)) ||
+                    (item.nama && item.nama.toLowerCase().includes(searchTerm)) ||
+                    (item.sekolah && item.sekolah.toLowerCase().includes(searchTerm)) ||
+                    (item.deskripsi && item.deskripsi.toLowerCase().includes(searchTerm));
+
+                const matchJenjang = !jenjang || item.jenjang === jenjang;
+                const matchMapel = !mapel || (item.mapel && item.mapel.trim() === mapel);
+                const matchJenis = !jenis || item.jenis === jenis;
+
+                return matchSearch && matchJenjang && matchMapel && matchJenis;
+            });
+
+            renderCards(filtered);
+        }
+
+        function resetFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('filterJenjang').value = '';
+            document.getElementById('filterMapel').value = '';
+            document.getElementById('filterJenis').value = '';
+            applyFilters();
+        }
+
+        // Mendapatkan styling badge & ikon berdasarkan Jenis Media
+        function getMediaBadgeStyle(jenis) {
+            const styles = {
+                'Video Pembelajaran': { bg: 'bg-rose-50 text-rose-700 border-rose-200', icon: 'fa-circle-play' },
+                'Modul / E-Book / PDF': { bg: 'bg-amber-50 text-amber-700 border-amber-200', icon: 'fa-book-open' },
+                'Quiz Interaktif': { bg: 'bg-purple-50 text-purple-700 border-purple-200', icon: 'fa-circle-question' },
+                'Game Edukasi': { bg: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: 'fa-gamepad' },
+                'Presentasi Interaktif': { bg: 'bg-sky-50 text-sky-700 border-sky-200', icon: 'fa-display' },
+                'Website / Aplikasi': { bg: 'bg-indigo-50 text-indigo-700 border-indigo-200', icon: 'fa-globe' }
+            };
+            return styles[jenis] || { bg: 'bg-slate-100 text-slate-700 border-slate-200', icon: 'fa-file-lines' };
+        }
+
+        // Render Kartu Media ke Grid
+        function renderCards(items) {
+            const loadingGrid = document.getElementById('loadingGrid');
+            const mediaGrid = document.getElementById('mediaGrid');
+            const emptyState = document.getElementById('emptyState');
+            const resultCountText = document.getElementById('resultCountText');
+
+            loadingGrid.classList.add('hidden');
+            resultCountText.textContent = `Menampilkan ${items.length} dari ${allMediaData.length} karya media pembelajaran`;
+
+            if (items.length === 0) {
+                mediaGrid.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            mediaGrid.classList.remove('hidden');
+
+            mediaGrid.innerHTML = items.map(item => {
+                const badge = getMediaBadgeStyle(item.jenis);
+                const safeJudul = escapeHtml(item.judul || 'Tanpa Judul');
+                const safeNama = escapeHtml(item.nama || 'Anonim');
+                const safeSekolah = escapeHtml(item.sekolah || '-');
+                const safeJenjang = escapeHtml(item.jenjang || 'Umum');
+                const safeMapel = escapeHtml(item.mapel || 'Umum');
+                const safeJenis = escapeHtml(item.jenis || 'Media Digital');
+                const safeDeskripsi = escapeHtml(item.deskripsi || 'Tidak ada deskripsi.');
+                const safeTautan = escapeHtml(item.tautan || '#');
+
+                return `
+                <article class="bg-white rounded-2xl border border-slate-200/90 shadow-sm hover:shadow-md hover:border-brand-300 transition-all duration-200 flex flex-col justify-between overflow-hidden group">
+                    <div class="p-5 space-y-3.5">
+                        <!-- Header Badges -->
+                        <div class="flex items-center justify-between gap-2 flex-wrap">
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold border ${badge.bg}">
+                                <i class="fa-solid ${badge.icon}"></i>
+                                ${safeJenis}
+                            </span>
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700">
+                                ${safeJenjang}
+                            </span>
+                        </div>
+
+                        <!-- Mata Pelajaran Pill -->
+                        <div>
+                            <span class="text-[11px] font-semibold uppercase tracking-wider text-brand-600 bg-brand-50 px-2 py-0.5 rounded">
+                                ${safeMapel}
+                            </span>
+                        </div>
+
+                        <!-- Judul & Deskripsi -->
+                        <div class="space-y-1.5">
+                            <h3 class="font-bold text-base sm:text-lg text-slate-900 group-hover:text-brand-600 transition line-clamp-2 leading-snug">
+                                ${safeJudul}
+                            </h3>
+                            <p class="text-xs sm:text-sm text-slate-600 line-clamp-3 leading-relaxed">
+                                ${safeDeskripsi}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Footer Kartu: Profil Guru & Tombol Buka -->
+                    <div class="px-5 py-4 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between gap-3">
+                        <div class="min-w-0 flex items-center gap-2.5">
+                            <div class="w-8 h-8 rounded-full bg-brand-100 text-brand-700 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                                ${safeNama.charAt(0).toUpperCase()}
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-xs font-semibold text-slate-800 truncate" title="${safeNama}">${safeNama}</p>
+                                <p class="text-[11px] text-slate-500 truncate" title="${safeSekolah}">${safeSekolah}</p>
+                            </div>
+                        </div>
+
+                        <a href="${safeTautan}" target="_blank" rel="noopener noreferrer" 
+                           class="flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white shadow-sm transition">
+                            <span>Buka Media</span>
+                            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                        </a>
+                    </div>
+                </article>
+                `;
+            }).join('');
+        }
+
+        // Penanganan Submit Form Karya Baru
+        async function handleFormSubmit(event) {
+            event.preventDefault();
+
+            const submitBtn = document.getElementById('submitBtn');
+            const nama = document.getElementById('inputNama').value.trim();
+            const sekolah = document.getElementById('inputSekolah').value.trim();
+            const judul = document.getElementById('inputJudul').value.trim();
+            const jenjang = document.getElementById('inputJenjang').value;
+            const mapel = document.getElementById('inputMapel').value.trim();
+            const jenis = document.getElementById('inputJenis').value;
+            const tautan = document.getElementById('inputTautan').value.trim();
+            const deskripsi = document.getElementById('inputDeskripsi').value.trim();
+
+            // Validasi URL
+            try {
+                const parsedUrl = new URL(tautan);
+                if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+                    throw new Error('Protokol URL harus http atau https');
+                }
+            } catch (_) {
+                showToast('Format Tautan/URL tidak valid! Pastikan diawali dengan https://', 'error');
+                return;
+            }
+
+            const payload = { nama, sekolah, judul, jenjang, mapel, jenis, deskripsi, tautan };
+
+            // Ubah tombol ke loading state
+            const originalBtnHtml = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> <span>Mengirim...</span>`;
+
+            try {
+                if (!SCRIPT_URL || SCRIPT_URL.trim() === "") {
+                    // Mode Demo: Simpan ke localStorage browser
+                    await new Promise(resolve => setTimeout(resolve, 600));
+                    const localSaved = JSON.parse(localStorage.getItem('bank_media_demo_items') || '[]');
+                    localSaved.unshift({ timestamp: new Date().toISOString(), ...payload });
+                    localStorage.setItem('bank_media_demo_items', JSON.stringify(localSaved));
+                    
+                    showToast('Karya berhasil ditambahkan (Mode Demo Lokal)!', 'success');
+                } else {
+                    // Kirim ke Google Apps Script Web App
+                    // Menggunakan Content-Type text/plain agar terhindar dari preflight CORS OPTIONS di Google Apps Script
+                    const response = await fetch(SCRIPT_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'text/plain;charset=utf-8',
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+                    if (result.status !== 'success') {
+                        throw new Error(result.message || 'Gagal menyimpan data ke Google Sheets.');
+                    }
+
+                    showToast('Terima kasih! Karya Anda berhasil dipublikasikan.', 'success');
+                }
+
+                document.getElementById('mediaForm').reset();
+                closeSubmitModal();
+                fetchMediaData();
+
+            } catch (error) {
+                console.error('Submit error:', error);
+                showToast('Terjadi kesalahan saat mengirim karya. Silakan coba lagi.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnHtml;
+            }
+        }
+
+        // Kontrol Modal Kirim Karya
+        function openSubmitModal() {
+            document.getElementById('submitModal').classList.remove('hidden');
+        }
+        function closeSubmitModal() {
+            document.getElementById('submitModal').classList.add('hidden');
+        }
+
+        // Kontrol Modal Pengaturan API
+        function openConfigModal() {
+            document.getElementById('scriptUrlInput').value = SCRIPT_URL;
+            document.getElementById('configModal').classList.remove('hidden');
+        }
+        function closeConfigModal() {
+            document.getElementById('configModal').classList.add('hidden');
+        }
+        function saveScriptUrl() {
+            const url = document.getElementById('scriptUrlInput').value.trim();
+            SCRIPT_URL = url;
+            localStorage.setItem('bank_media_script_url', url);
+            updateBannerVisibility();
+            closeConfigModal();
+            showToast(url ? 'URL Google Apps Script disimpan!' : 'Beralih ke Mode Demo.', 'success');
+            fetchMediaData();
+        }
+
+        // Toast Notification Helper
+        let toastTimeout;
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const content = document.getElementById('toastContent');
+            const icon = document.getElementById('toastIcon');
+            const msg = document.getElementById('toastMessage');
+
+            msg.textContent = message;
+            if (type === 'error') {
+                content.className = 'flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-white text-sm font-medium bg-rose-600';
+                icon.className = 'fa-solid fa-circle-exclamation';
+            } else {
+                content.className = 'flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg text-white text-sm font-medium bg-emerald-600';
+                icon.className = 'fa-solid fa-circle-check';
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 4000);
+        }
+
+        // Mencegah XSS pada rendering string
+        function escapeHtml(unsafe) {
+            return String(unsafe)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
